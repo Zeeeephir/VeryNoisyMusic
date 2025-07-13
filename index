@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application de Suggestion Musicale</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- qrcode.js CDN for QR Code generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for song list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Fade-in-down animation for messages */
+        @keyframes fade-in-down {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-down {
+            animation: fade-in-down 0.3s ease-out forwards;
+        }
+        /* Modal overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-purple-600 to-blue-800 text-white p-4 sm:p-8 flex flex-col items-center justify-center">
+
+    <!-- Message Display -->
+    <div id="message-display" class="fixed top-4 bg-white text-gray-800 px-4 py-2 rounded-lg shadow-lg z-50 hidden animate-fade-in-down"></div>
+
+    <div id="app-container" class="w-full max-w-md bg-white text-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl transform transition-transform duration-300">
+        <!-- Content will be rendered here by JavaScript -->
+    </div>
+
+    <!-- Admin Login Modal -->
+    <div id="admin-login-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Accès Administrateur</h2>
+            <p class="text-gray-600 mb-4">Veuillez entrer le code administrateur :</p>
+            <input
+                type="password"
+                id="admin-code-input"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mb-4 text-center"
+                placeholder="Code"
+            />
+            <button
+                id="admin-code-submit-btn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105 mb-2"
+            >
+                Valider
+            </button>
+            <button
+                id="admin-code-cancel-btn"
+                class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+            >
+                Annuler
+            </button>
+            <p id="admin-modal-message" class="text-red-500 text-sm mt-2"></p>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+        let currentView = 'public'; // 'public' or 'admin'
+        let messageTimeoutRef = null;
+
+        // Get app ID and Firebase config from global environment variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+        // Function to display messages
+        function showMessage(msg, isError = false) {
+            const messageDisplay = document.getElementById('message-display');
+            messageDisplay.textContent = msg;
+            if (isError) {
+                messageDisplay.classList.remove('bg-white', 'text-gray-800');
+                messageDisplay.classList.add('bg-red-500', 'text-white');
+            } else {
+                messageDisplay.classList.remove('bg-red-500', 'text-white');
+                messageDisplay.classList.add('bg-white', 'text-gray-800');
+            }
+            messageDisplay.classList.remove('hidden');
+            clearTimeout(messageTimeoutRef);
+            messageTimeoutRef = setTimeout(() => {
+                messageDisplay.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Initialize Firebase and handle authentication
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                    } else {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            try {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                            } catch (error) {
+                                console.error("Error signing in with custom token:", error);
+                                await signInAnonymously(auth);
+                            }
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    }
+                    isAuthReady = true;
+                    renderApp(); // Render the app once auth is ready
+                });
+            } catch (error) {
+                console.error("Failed to initialize Firebase:", error);
+                showMessage("Erreur lors de l'initialisation de l'application.", true);
+            }
+        }
+
+        // Function to render the public submission form
+        function renderPublicView() {
+            const appContainer = document.getElementById('app-container');
+            appContainer.classList.remove('max-w-3xl'); // Remove admin specific width
+            appContainer.classList.add('max-w-md'); // Add public specific width
+            appContainer.innerHTML = `
+                <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-purple-700">Proposez une musique !</h1>
+                <p class="text-center text-gray-600 mb-8">Scannez ce QR code pour proposer une musique qui apparaîtra en direct sur l'écran de l'administrateur.</p>
+
+                <form id="song-submission-form" class="space-y-6">
+                    <div>
+                        <label for="songTitle" class="block text-gray-700 text-sm font-semibold mb-2">Titre de la musique</label>
+                        <input
+                            type="text"
+                            id="songTitle"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200"
+                            placeholder="Ex: Bohemian Rhapsody"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label for="artistName" class="block text-gray-700 text-sm font-semibold mb-2">Artiste</label>
+                        <input
+                            type="text"
+                            id="artistName"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200"
+                            placeholder="Ex: Queen"
+                            required
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                    >
+                        Proposer la musique
+                    </button>
+                </form>
+                <button
+                    id="admin-access-btn"
+                    class="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                >
+                    Accéder à la vue Admin
+                </button>
+            `;
+
+            document.getElementById('song-submission-form').addEventListener('submit', handleSubmitSong);
+            document.getElementById('admin-access-btn').addEventListener('click', showAdminLoginModal);
+        }
+
+        // Function to render the admin view
+        function renderAdminView() {
+            const appContainer = document.getElementById('app-container');
+            appContainer.classList.remove('max-w-md'); // Remove public specific width
+            appContainer.classList.add('max-w-3xl'); // Add admin specific width
+            appContainer.innerHTML = `
+                <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-blue-700">Musiques proposées (Vue Admin)</h1>
+                <div class="text-center text-gray-600 mb-4">
+                    <p>Votre ID utilisateur (pour le débogage) : <span class="font-mono text-sm break-all">${userId || 'Chargement...'}</span></p>
+                    <p class="mt-2">
+                        Partagez ce lien pour que les gens puissent proposer des musiques :
+                        <button
+                            id="copy-public-url-btn"
+                            class="ml-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-1 px-3 rounded-md shadow-sm transition duration-200"
+                        >
+                            Copier le lien public
+                        </button>
+                    </p>
+                </div>
+
+                <!-- QR Code Generator Section -->
+                <div class="mt-8 p-6 bg-gray-50 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Générer un QR Code pour un lien</h2>
+                    <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                        <input
+                            type="url"
+                            id="qr-link-input"
+                            class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-gray-800"
+                            placeholder="Entrez le lien pour le QR Code (ex: https://example.com)"
+                        />
+                        <button
+                            id="generate-qr-btn"
+                            class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                        >
+                            Générer QR Code
+                        </button>
+                    </div>
+                    <div id="qrcode-container" class="flex justify-center items-center p-4 bg-white rounded-lg border border-gray-200 min-h-[200px]">
+                        <p class="text-gray-400">Le QR Code apparaîtra ici.</p>
+                    </div>
+                </div>
+
+                <div id="songs-list-container" class="mt-8 max-h-96 overflow-y-auto custom-scrollbar">
+                    <p class="text-center text-gray-500 text-lg mt-10">Chargement des musiques...</p>
+                </div>
+            `;
+
+            document.getElementById('copy-public-url-btn').addEventListener('click', copyPublicUrl);
+            document.getElementById('generate-qr-btn').addEventListener('click', generateQrCode); // Add listener for QR button
+            setupSongsListener();
+        }
+
+        // Main render function based on current view
+        function renderApp() {
+            if (!isAuthReady) {
+                document.getElementById('app-container').innerHTML = `
+                    <div class="flex items-center justify-center min-h-screen bg-gray-100">
+                        <div class="text-xl text-gray-700">Chargement de l'application...</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (currentView === 'admin' || window.location.pathname.includes('/admin')) {
+                currentView = 'admin'; // Ensure view is set to admin if URL contains /admin
+                renderAdminView();
+            } else {
+                currentView = 'public';
+                renderPublicView();
+            }
+        }
+
+        // Function to handle song submission
+        async function handleSubmitSong(e) {
+            e.preventDefault();
+            const songTitleInput = document.getElementById('songTitle');
+            const artistNameInput = document.getElementById('artistName');
+            const songTitle = songTitleInput.value.trim();
+            const artistName = artistNameInput.value.trim();
+
+            if (!songTitle || !artistName) {
+                showMessage("Veuillez remplir tous les champs.", true);
+                return;
+            }
+
+            if (!db) {
+                showMessage("La base de données n'est pas initialisée.", true);
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/public/data/suggestions`), {
+                    title: songTitle,
+                    artist: artistName,
+                    timestamp: serverTimestamp(),
+                    submittedBy: auth.currentUser ? auth.currentUser.uid : 'anonymous'
+                });
+                songTitleInput.value = '';
+                artistNameInput.value = '';
+                showMessage("Musique proposée avec succès !");
+            } catch (error) {
+                console.error("Error adding document:", error);
+                showMessage("Erreur lors de la proposition de la musique.", true);
+            }
+        }
+
+        // Function to copy the public URL
+        function copyPublicUrl() {
+            const publicUrl = window.location.origin; // Gets the base URL
+            navigator.clipboard.writeText(publicUrl).then(() => {
+                showMessage("Lien public copié !");
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+                showMessage("Erreur lors de la copie du lien.", true);
+            });
+        }
+
+        // Real-time listener for song suggestions (Admin View)
+        function setupSongsListener() {
+            if (db && isAuthReady && currentView === 'admin') {
+                const q = query(collection(db, `artifacts/${appId}/public/data/suggestions`)); // No orderBy to avoid index issues
+                onSnapshot(q, (snapshot) => {
+                    const songsData = [];
+                    snapshot.forEach((doc) => {
+                        songsData.push({ id: doc.id, ...doc.data() });
+                    });
+                    // Sort client-side by timestamp if available
+                    songsData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                    displaySongs(songsData);
+                }, (error) => {
+                    console.error("Error fetching songs:", error);
+                    showMessage("Erreur lors du chargement des musiques.", true);
+                });
+            }
+        }
+
+        // Function to display songs in the admin view
+        function displaySongs(songs) {
+            const songsListContainer = document.getElementById('songs-list-container');
+            if (!songsListContainer) return; // Ensure container exists
+
+            if (songs.length === 0) {
+                songsListContainer.innerHTML = `
+                    <p class="text-center text-gray-500 text-lg mt-10">
+                        Aucune musique proposée pour l'instant. Partagez le lien public !
+                    </p>
+                `;
+            } else {
+                let songsHtml = '<ul class="space-y-4">';
+                songs.forEach(song => {
+                    const timestampText = song.timestamp ? `Proposé le: ${new Date(song.timestamp.toDate()).toLocaleString()}` : '';
+                    songsHtml += `
+                        <li class="bg-gray-50 p-4 rounded-lg shadow-md flex justify-between items-center">
+                            <div>
+                                <p class="text-lg font-semibold text-gray-900">${song.title}</p>
+                                <p class="text-gray-600">par ${song.artist}</p>
+                                <p class="text-xs text-gray-400 mt-1">${timestampText}</p>
+                            </div>
+                        </li>
+                    `;
+                });
+                songsHtml += '</ul>';
+                songsListContainer.innerHTML = songsHtml;
+            }
+        }
+
+        // Admin Login Modal Functions
+        function showAdminLoginModal() {
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+            document.getElementById('admin-code-input').value = ''; // Clear input
+            document.getElementById('admin-modal-message').textContent = ''; // Clear message
+        }
+
+        function hideAdminLoginModal() {
+            document.getElementById('admin-login-modal').classList.add('hidden');
+        }
+
+        function handleAdminLogin() {
+            const adminCodeInput = document.getElementById('admin-code-input');
+            const adminModalMessage = document.getElementById('admin-modal-message');
+            const enteredCode = adminCodeInput.value;
+            const correctCode = "2507"; // The required admin code
+
+            if (enteredCode === correctCode) {
+                currentView = 'admin';
+                hideAdminLoginModal();
+                renderApp(); // Re-render to show admin view
+                showMessage("Accès administrateur accordé !");
+            } else {
+                adminModalMessage.textContent = "Code incorrect. Veuillez réessayer.";
+                adminCodeInput.value = ''; // Clear input on incorrect attempt
+            }
+        }
+
+        // Function to generate QR Code
+        function generateQrCode() {
+            const qrLinkInput = document.getElementById('qr-link-input');
+            const qrcodeContainer = document.getElementById('qrcode-container');
+            const linkToEncode = qrLinkInput.value.trim();
+
+            if (!linkToEncode) {
+                showMessage("Veuillez entrer un lien pour générer le QR Code.", true);
+                return;
+            }
+
+            // Clear previous QR code
+            qrcodeContainer.innerHTML = '';
+
+            try {
+                // Use window.QRCode to explicitly access the global QRCode object
+                new window.QRCode(qrcodeContainer, {
+                    text: linkToEncode,
+                    width: 200,
+                    height: 200,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : window.QRCode.CorrectLevel.H // Use window.QRCode here too
+                });
+                showMessage("QR Code généré avec succès !");
+            } catch (error) {
+                console.error("Error generating QR code:", error);
+                showMessage("Erreur lors de la génération du QR Code.", true);
+            }
+        }
+
+        // Event listeners for the modal buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('admin-code-submit-btn').addEventListener('click', handleAdminLogin);
+            document.getElementById('admin-code-cancel-btn').addEventListener('click', hideAdminLoginModal);
+        });
+
+
+        // Initialize Firebase on window load
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
