@@ -7,31 +7,34 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            /* Ensure the body takes full height for the gradient */
+            min-height: 100vh;
         }
         /* Custom scrollbar for song list */
         .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
+            width: 10px; /* Wider scrollbar */
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: #f0f0f0; /* Lighter track for better contrast */
             border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #888;
+            background: #c0c0c0; /* Slightly darker thumb */
             border-radius: 10px;
+            border: 2px solid #f0f0f0; /* Border to match track */
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: #909090; /* Darker on hover */
         }
         /* Fade-in-down animation for messages */
         @keyframes fade-in-down {
             from {
                 opacity: 0;
-                transform: translateY(-20px);
+                transform: translateY(-30px); /* More pronounced movement */
             }
             to {
                 opacity: 1;
@@ -39,7 +42,7 @@
             }
         }
         .animate-fade-in-down {
-            animation: fade-in-down 0.3s ease-out forwards;
+            animation: fade-in-down 0.4s ease-out forwards; /* Slightly longer animation */
         }
         /* Modal overlay */
         .modal-overlay {
@@ -48,73 +51,88 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7); /* Darker, more opaque overlay */
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 100;
+            backdrop-filter: blur(5px); /* Subtle blur effect */
         }
         .modal-content {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff; /* Pure white background */
+            padding: 3rem; /* Increased padding */
+            border-radius: 1.5rem; /* Even more rounded corners */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1); /* Stronger, deeper shadow */
             width: 90%;
-            max-width: 400px;
+            max-width: 500px; /* Wider modal */
             text-align: center;
+            transform: scale(0.9); /* Initial scale for pop-in effect */
+            opacity: 0; /* Initial opacity for fade-in */
+            animation: modal-pop-in 0.3s ease-out forwards; /* Pop-in animation */
+        }
+
+        @keyframes modal-pop-in {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-purple-600 to-blue-800 text-white p-4 sm:p-8 flex flex-col items-center justify-center">
+<body class="min-h-screen bg-gradient-to-br from-purple-800 to-indigo-900 text-white p-6 sm:p-10 flex flex-col items-center justify-center">
 
     <!-- Message Display -->
-    <div id="message-display" class="fixed top-4 bg-white text-gray-800 px-4 py-2 rounded-lg shadow-lg z-50 hidden animate-fade-in-down"></div>
+    <div id="message-display" class="fixed top-8 left-1/2 -translate-x-1/2 bg-white text-gray-900 px-8 py-4 rounded-xl shadow-2xl z-50 hidden animate-fade-in-down font-bold text-lg border-b-4 border-purple-500"></div>
 
-    <div id="app-container" class="w-full max-w-md bg-white text-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl transform transition-transform duration-300">
+    <div id="app-container" class="w-full max-w-lg bg-white text-gray-800 p-10 sm:p-12 rounded-3xl shadow-4xl transform transition-transform duration-500 hover:scale-[1.005] border border-gray-200">
         <!-- Content will be rendered here by JavaScript -->
     </div>
 
     <!-- Admin Login Modal -->
     <div id="admin-login-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Accès Administrateur</h2>
-            <p class="text-gray-600 mb-4">Veuillez entrer le code administrateur :</p>
+            <h2 class="text-4xl font-black text-gray-900 mb-6">Accès Administrateur</h2>
+            <p class="text-gray-700 mb-8 text-xl">Veuillez entrer le code administrateur :</p>
             <input
                 type="password"
                 id="admin-code-input"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mb-4 text-center"
+                class="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-600 transition duration-300 mb-6 text-center text-xl font-medium"
                 placeholder="Code"
             />
             <button
                 id="admin-code-submit-btn"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105 mb-2"
+                class="w-full bg-blue-700 hover:bg-blue-800 text-white font-extrabold py-4 px-8 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:scale-105 mb-4 text-xl tracking-wide"
             >
                 Valider
             </button>
             <button
                 id="admin-code-cancel-btn"
-                class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:scale-105 text-xl tracking-wide"
             >
                 Annuler
             </button>
-            <p id="admin-modal-message" class="text-red-500 text-sm mt-2"></p>
+            <p id="admin-modal-message" class="text-red-700 text-base mt-4 font-semibold"></p>
         </div>
     </div>
 
     <!-- Generic Confirmation Modal -->
     <div id="confirmation-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4" id="confirmation-modal-title">Confirmer l'action</h2>
-            <p class="text-gray-600 mb-4" id="confirmation-modal-message"></p>
+            <h2 class="text-4xl font-black text-gray-900 mb-6" id="confirmation-modal-title">Confirmer l'action</h2>
+            <p class="text-gray-700 mb-8 text-xl" id="confirmation-modal-message"></p>
             <button
                 id="confirm-action-btn"
-                class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105 mb-2"
+                class="w-full bg-red-700 hover:bg-red-800 text-white font-extrabold py-4 px-8 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:scale-105 mb-4 text-xl tracking-wide"
             >
                 Confirmer
             </button>
             <button
                 id="cancel-action-btn"
-                class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:scale-105 text-xl tracking-wide"
             >
                 Annuler
             </button>
@@ -154,11 +172,11 @@
             const messageDisplay = document.getElementById('message-display');
             messageDisplay.textContent = msg;
             if (isError) {
-                messageDisplay.classList.remove('bg-white', 'text-gray-800');
-                messageDisplay.classList.add('bg-red-500', 'text-white');
+                messageDisplay.classList.remove('bg-white', 'text-gray-900', 'border-purple-500');
+                messageDisplay.classList.add('bg-red-600', 'text-white', 'border-red-800');
             } else {
-                messageDisplay.classList.remove('bg-red-500', 'text-white');
-                messageDisplay.classList.add('bg-white', 'text-gray-800');
+                messageDisplay.classList.remove('bg-red-600', 'text-white', 'border-red-800');
+                messageDisplay.classList.add('bg-white', 'text-gray-900', 'border-purple-500');
             }
             messageDisplay.classList.remove('hidden');
             clearTimeout(messageTimeoutRef);
@@ -251,68 +269,68 @@
         function renderPublicView() {
             const appContainer = document.getElementById('app-container');
             appContainer.classList.remove('max-w-3xl');
-            appContainer.classList.add('max-w-md');
+            appContainer.classList.add('max-w-lg'); /* Increased max-width for public view */
             appContainer.innerHTML = `
-                <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-purple-700">Proposez une musique !</h1>
-                <p class="text-center text-gray-600 mb-8">Proposez une musique en la saisissant manuellement ou en explorant nos playlists SoundCloud.</p>
+                <h1 class="text-5xl sm:text-6xl font-black text-center mb-8 text-purple-800 leading-tight drop-shadow-lg">Proposez une musique !</h1>
+                <p class="text-center text-gray-700 mb-12 text-xl font-light">Proposez une musique en la saisissant manuellement ou en explorant nos playlists SoundCloud.</p>
 
-                <div class="space-y-4 mb-8 p-4 bg-gray-50 rounded-lg shadow-inner">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4">Explorer les playlists SoundCloud</h2>
+                <div class="space-y-5 mb-12 p-8 bg-gray-100 rounded-2xl shadow-xl border border-gray-200">
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 border-purple-300 pb-3">Explorer les playlists SoundCloud</h2>
                     <button
                         id="openHardTechnoPlaylistBtn"
-                        class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                        class="w-full bg-orange-600 hover:bg-orange-700 text-white font-extrabold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:scale-105 text-xl tracking-wide"
                     >
                         Playlist Hard Techno
                     </button>
                     <button
                         id="openTechnoPlaylistBtn"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:scale-105"
                     >
                         Playlist Techno
                     </button>
                     <button
                         id="openHardcorePlaylistBtn"
-                        class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                        class="w-full bg-red-600 hover:bg-red-700 text-white font-extrabold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:scale-105"
                     >
                         Playlist Hardcore
                     </button>
                 </div>
 
-                <div class="text-center text-gray-600 mb-8">
-                    <p class="text-lg font-semibold">OU</p>
+                <div class="text-center text-gray-600 mb-10">
+                    <p class="text-2xl font-black">OU</p>
                 </div>
 
-                <form id="song-submission-form" class="space-y-6">
+                <form id="song-submission-form" class="space-y-7">
                     <div>
-                        <label for="songTitle" class="block text-gray-700 text-sm font-semibold mb-2">Titre de la musique</label>
+                        <label for="songTitle" class="block text-gray-700 text-lg font-semibold mb-3">Titre de la musique</label>
                         <input
                             type="text"
                             id="songTitle"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200"
+                            class="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-600 transition duration-300 text-xl font-medium"
                             placeholder="Ex: Bohemian Rhapsody"
                             required
                         />
                     </div>
                     <div>
-                        <label for="artistName" class="block text-gray-700 text-sm font-semibold mb-2">Artiste</label>
+                        <label for="artistName" class="block text-gray-700 text-lg font-semibold mb-3">Artiste</label>
                         <input
                             type="text"
                             id="artistName"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200"
+                            class="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-600 transition duration-300 text-xl font-medium"
                             placeholder="Ex: Queen"
                             required
                         />
                     </div>
                     <button
                         type="submit"
-                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                        class="w-full bg-purple-700 hover:bg-purple-800 text-white font-extrabold py-4 px-8 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:scale-105 text-xl tracking-wide"
                     >
                         Proposer la musique
                     </button>
                 </form>
                 <button
                     id="admin-access-btn"
-                    class="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                    class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 px-8 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:scale-105 text-xl tracking-wide"
                 >
                     Accéder à la vue Admin
                 </button>
@@ -337,29 +355,29 @@
         function renderAdminView() {
             const appContainer = document.getElementById('app-container');
             appContainer.classList.remove('max-w-md');
-            appContainer.classList.add('max-w-3xl');
+            appContainer.classList.add('max-w-4xl'); /* Increased max-width for admin view */
             appContainer.innerHTML = `
-                <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-blue-700">Musiques proposées (Vue Admin)</h1>
-                <div class="text-center text-gray-600 mb-4">
-                    <p>Votre ID utilisateur (pour le débogage) : <span class="font-mono text-sm break-all">${userId || 'Chargement...'}</span></p>
-                    <p class="mt-2">
+                <h1 class="text-5xl sm:text-6xl font-black text-center mb-8 text-blue-800 leading-tight drop-shadow-lg">Musiques proposées (Vue Admin)</h1>
+                <div class="text-center text-gray-700 mb-8 text-lg font-light">
+                    <p>Votre ID utilisateur (pour le débogage) : <span class="font-mono text-base break-all font-semibold text-gray-800">${userId || 'Chargement...'}</span></p>
+                    <p class="mt-4">
                         Partagez ce lien pour que les gens puissent proposer des musiques :
                         <button
                             id="copy-public-url-btn"
-                            class="ml-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-1 px-3 rounded-md shadow-sm transition duration-200"
+                            class="ml-3 bg-blue-500 hover:bg-blue-600 text-white text-base font-semibold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg transition duration-200 transform hover:scale-105"
                         >
                             Copier le lien public
                         </button>
                     </p>
                 </div>
 
-                <div id="songs-list-container" class="mt-8 max-h-96 overflow-y-auto custom-scrollbar">
-                    <p class="text-center text-gray-500 text-lg mt-10">Chargement des musiques...</p>
+                <div id="songs-list-container" class="mt-10 max-h-[500px] overflow-y-auto custom-scrollbar p-4 bg-gray-100 rounded-2xl shadow-inner border border-gray-200">
+                    <p class="text-center text-gray-500 text-xl mt-12 font-medium">Chargement des musiques...</p>
                 </div>
 
                 <button
                     id="delete-all-suggestions-btn"
-                    class="mt-6 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                    class="mt-10 w-full bg-red-700 hover:bg-red-800 text-white font-extrabold py-4 px-8 rounded-xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:scale-105 text-xl tracking-wide"
                 >
                     Supprimer toutes les suggestions
                 </button>
@@ -469,20 +487,20 @@
 
             if (songs.length === 0) {
                 songsListContainer.innerHTML = `
-                    <p class="text-center text-gray-500 text-lg mt-10">
+                    <p class="text-center text-gray-500 text-xl mt-12 font-medium">
                         Aucune musique proposée pour l'instant. Partagez le lien public !
                     </p>
                 `;
             } else {
-                let songsHtml = '<ul class="space-y-4">';
+                let songsHtml = '<ul class="space-y-5">'; /* Increased space between items */
                 songs.forEach(song => {
                     const timestampText = song.timestamp ? `Proposé le: ${new Date(song.timestamp.toDate()).toLocaleString()}` : '';
                     songsHtml += `
-                        <li class="bg-gray-50 p-4 rounded-lg shadow-md flex justify-between items-center">
+                        <li class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex justify-between items-center transform transition-transform duration-300 hover:scale-[1.015]">
                             <div>
-                                <p class="text-lg font-semibold text-gray-900">${song.title}</p>
-                                <p class="text-gray-600">par ${song.artist}</p>
-                                <p class="text-xs text-gray-400 mt-1">${timestampText}</p>
+                                <p class="text-2xl font-bold text-gray-900 mb-1">${song.title}</p>
+                                <p class="text-gray-700 text-lg">par <span class="font-semibold">${song.artist}</span></p>
+                                <p class="text-sm text-gray-500 mt-2">${timestampText}</p>
                             </div>
                         </li>
                     `;
@@ -494,7 +512,8 @@
 
         // Admin Login Modal Functions
         function showAdminLoginModal() {
-            document.getElementById('admin-login-modal').classList.remove('hidden');
+            const modal = document.getElementById('admin-login-modal');
+            modal.classList.remove('hidden');
             document.getElementById('admin-code-input').value = '';
             document.getElementById('admin-modal-message').textContent = '';
         }
