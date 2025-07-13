@@ -142,6 +142,13 @@
         // Global variable for confirmation callback
         let currentConfirmCallback = null;
 
+        // SoundCloud playlist URLs
+        const soundcloudPlaylists = {
+            "hard-techno": "https://soundcloud.com/noisyneighborsmusics/sets/hard-techno?si=9e0fd99146c54e9da67f9d199b2875eb&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing",
+            "techno": "https://soundcloud.com/noisyneighborsmusics/sets/technouille?si=41fdbd47a95b4450a6110f9cf4e2def6&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing",
+            "hardcore": "https://soundcloud.com/noisyneighborsmusics/sets/hard-core?si=a0ef9f8931964083adc0ae734eb80b1e&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing"
+        };
+
         // Function to display messages
         function showMessage(msg, isError = false) {
             const messageDisplay = document.getElementById('message-display');
@@ -247,7 +254,33 @@
             appContainer.classList.add('max-w-md');
             appContainer.innerHTML = `
                 <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-purple-700">Proposez une musique !</h1>
-                <p class="text-center text-gray-600 mb-8">Proposez une musique qui apparaîtra en direct sur l'écran de l'administrateur.</p>
+                <p class="text-center text-gray-600 mb-8">Proposez une musique en la saisissant manuellement ou en explorant nos playlists SoundCloud.</p>
+
+                <div class="space-y-4 mb-8 p-4 bg-gray-50 rounded-lg shadow-inner">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Explorer les playlists SoundCloud</h2>
+                    <button
+                        id="openHardTechnoPlaylistBtn"
+                        class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                    >
+                        Playlist Hard Techno
+                    </button>
+                    <button
+                        id="openTechnoPlaylistBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                    >
+                        Playlist Techno
+                    </button>
+                    <button
+                        id="openHardcorePlaylistBtn"
+                        class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                    >
+                        Playlist Hardcore
+                    </button>
+                </div>
+
+                <div class="text-center text-gray-600 mb-8">
+                    <p class="text-lg font-semibold">OU</p>
+                </div>
 
                 <form id="song-submission-form" class="space-y-6">
                     <div>
@@ -287,6 +320,17 @@
 
             document.getElementById('song-submission-form').addEventListener('submit', handleSubmitSong);
             document.getElementById('admin-access-btn').addEventListener('click', showAdminLoginModal);
+
+            // SoundCloud playlist button event listeners
+            document.getElementById('openHardTechnoPlaylistBtn').addEventListener('click', () => {
+                window.open(soundcloudPlaylists["hard-techno"], '_blank');
+            });
+            document.getElementById('openTechnoPlaylistBtn').addEventListener('click', () => {
+                window.open(soundcloudPlaylists["techno"], '_blank');
+            });
+            document.getElementById('openHardcorePlaylistBtn').addEventListener('click', () => {
+                window.open(soundcloudPlaylists["hardcore"], '_blank');
+            });
         }
 
         // Function to render the admin view
