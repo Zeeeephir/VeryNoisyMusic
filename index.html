@@ -8,8 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- qrcode.js CDN for QR Code generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -103,12 +101,13 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <!-- Firebase SDKs (v8.10.1 for global access) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
+    <!-- Main application script -->
+    <script>
         // Global variables for Firebase
         let app;
         let db;
@@ -117,6 +116,8 @@
         let isAuthReady = false;
         let currentView = 'public'; // 'public' or 'admin'
         let messageTimeoutRef = null;
+        // Declare appId globally so it's accessible everywhere
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'musique-35958'; // Using your projectId as fallback
 
         // Function to display messages
         function showMessage(msg, isError = false) {
@@ -138,20 +139,13 @@
 
         // Initialize Firebase and handle authentication
         async function initializeFirebase() {
-            // Get app ID and Firebase config from global environment variables
-            // Provide fallbacks for environments where these might not be defined (e.g., GitHub Pages)
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'musique-35958'; // Using your projectId as fallback
             let firebaseConfig = {};
-            let firebaseInitializedSuccessfully = false;
 
             try {
-                // Check if __firebase_config is defined and not an empty string
                 if (typeof __firebase_config !== 'undefined' && String(__firebase_config).trim() !== '') {
                     firebaseConfig = JSON.parse(String(__firebase_config));
                 } else {
                     console.warn("Firebase config (__firebase_config) is not provided or is empty. Using hardcoded configuration.");
-                    // showMessage("Configuration Firebase manquante. Utilisation de la configuration intégrée.", false); // This message has been removed as requested
-                    // YOUR PROVIDED FIREBASE CONFIGURATION
                     firebaseConfig = {
                         apiKey: "AIzaSyCyjgE-VThkCTsgCwO4drfnKnfCYRpQs_g",
                         authDomain: "musique-35958.firebaseapp.com",
@@ -159,53 +153,52 @@
                         storageBucket: "musique-35958.firebasestorage.app",
                         messagingSenderId: "265142488127",
                         appId: "1:265142488127:web:ce02e9de4bb64d7f0f7c8a",
-                        // measurementId: "G-D2RN4DGC39" // Not strictly needed for core functionality
                     };
                 }
             } catch (e) {
                 console.error("Error parsing Firebase config:", e);
                 showMessage("Erreur lors de l'analyse de la configuration Firebase. Vérifiez la console.", true);
-                isAuthReady = true; // Allow UI to render even if Firebase init fails
+                isAuthReady = true;
                 renderApp();
-                return; // Stop initialization if parsing fails
+                return;
             }
 
-            // Only proceed with Firebase initialization if firebaseConfig has an apiKey (minimal check)
             if (firebaseConfig && firebaseConfig.apiKey) {
                 try {
-                    app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-                    firebaseInitializedSuccessfully = true;
+                    // Initialize Firebase app using the global firebase object
+                    app = firebase.initializeApp(firebaseConfig);
+                    // Get Auth and Firestore instances from the initialized app
+                    auth = app.auth();
+                    db = app.firestore();
 
-                    onAuthStateChanged(auth, async (user) => {
+                    auth.onAuthStateChanged(async (user) => {
                         if (user) {
                             userId = user.uid;
                         } else {
                             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                                 try {
-                                    await signInWithCustomToken(auth, __initial_auth_token);
+                                    await auth.signInWithCustomToken(__initial_auth_token);
                                 } catch (error) {
                                     console.error("Error signing in with custom token:", error);
-                                    await signInAnonymously(auth); // Fallback to anonymous if custom token fails
+                                    await auth.signInAnonymously();
                                 }
                             } else {
-                                await signInAnonymously(auth); // Sign in anonymously if no custom token
+                                await auth.signInAnonymously();
                             }
                         }
                         isAuthReady = true;
-                        renderApp(); // Render the app once auth is ready
+                        renderApp();
                     });
                 } catch (error) {
                     console.error("Failed to initialize Firebase app or services:", error);
                     showMessage("Erreur lors de l'initialisation de Firebase. Vérifiez la console.", true);
-                    isAuthReady = true; // Allow UI to render even if Firebase init fails
+                    isAuthReady = true;
                     renderApp();
                 }
             } else {
                 console.warn("Firebase initialization skipped because API key is missing in config.");
                 showMessage("Initialisation Firebase ignorée. Clé API manquante.", true);
-                isAuthReady = true; // Still set auth ready to render the UI
+                isAuthReady = true;
                 renderApp();
             }
         }
@@ -213,11 +206,11 @@
         // Function to render the public submission form
         function renderPublicView() {
             const appContainer = document.getElementById('app-container');
-            appContainer.classList.remove('max-w-3xl'); // Remove admin specific width
-            appContainer.classList.add('max-w-md'); // Add public specific width
+            appContainer.classList.remove('max-w-3xl');
+            appContainer.classList.add('max-w-md');
             appContainer.innerHTML = `
                 <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-purple-700">Proposez une musique !</h1>
-                <p class="text-center text-gray-600 mb-8">Scannez ce QR code pour proposer une musique qui apparaîtra en direct sur l'écran de l'administrateur.</p>
+                <p class="text-center text-gray-600 mb-8">Proposez une musique qui apparaîtra en direct sur l'écran de l'administrateur.</p>
 
                 <form id="song-submission-form" class="space-y-6">
                     <div>
@@ -262,8 +255,8 @@
         // Function to render the admin view
         function renderAdminView() {
             const appContainer = document.getElementById('app-container');
-            appContainer.classList.remove('max-w-md'); // Remove public specific width
-            appContainer.classList.add('max-w-3xl'); // Add admin specific width
+            appContainer.classList.remove('max-w-md');
+            appContainer.classList.add('max-w-3xl');
             appContainer.innerHTML = `
                 <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-blue-700">Musiques proposées (Vue Admin)</h1>
                 <div class="text-center text-gray-600 mb-4">
@@ -279,35 +272,12 @@
                     </p>
                 </div>
 
-                <!-- QR Code Generator Section -->
-                <div class="mt-8 p-6 bg-gray-50 rounded-xl shadow-md">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Générer un QR Code pour un lien</h2>
-                    <div class="flex flex-col sm:flex-row gap-4 mb-4">
-                        <input
-                            type="url"
-                            id="qr-link-input"
-                            class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-gray-800"
-                            placeholder="Entrez le lien pour le QR Code (ex: https://example.com)"
-                        />
-                        <button
-                            id="generate-qr-btn"
-                            class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
-                        >
-                            Générer QR Code
-                        </button>
-                    </div>
-                    <div id="qrcode-container" class="flex justify-center items-center p-4 bg-white rounded-lg border border-gray-200 min-h-[200px]">
-                        <p class="text-gray-400">Le QR Code apparaîtra ici.</p>
-                    </div>
-                </div>
-
                 <div id="songs-list-container" class="mt-8 max-h-96 overflow-y-auto custom-scrollbar">
                     <p class="text-center text-gray-500 text-lg mt-10">Chargement des musiques...</p>
                 </div>
             `;
 
             document.getElementById('copy-public-url-btn').addEventListener('click', copyPublicUrl);
-            document.getElementById('generate-qr-btn').addEventListener('click', generateQrCode); // Add listener for QR button
             setupSongsListener();
         }
 
@@ -322,14 +292,17 @@
                 return;
             }
 
-            // Check URL parameters for view
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('view') === 'admin') {
-                currentView = 'admin';
+            if (currentView === 'admin') {
                 renderAdminView();
             } else {
-                currentView = 'public';
-                renderPublicView();
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('view') === 'admin') {
+                    currentView = 'admin';
+                    renderAdminView();
+                } else {
+                    currentView = 'public';
+                    renderPublicView();
+                }
             }
         }
 
@@ -346,17 +319,17 @@
                 return;
             }
 
-            // Check if db is initialized before trying to use it
             if (!db) {
                 showMessage("La base de données n'est pas initialisée. Vérifiez votre configuration Firebase.", true);
                 return;
             }
 
             try {
-                await addDoc(collection(db, `artifacts/${appId}/public/data/suggestions`), {
+                // Using v8 Firestore syntax: db.collection(...).add(...)
+                await db.collection(`artifacts/${appId}/public/data/suggestions`).add({
                     title: songTitle,
                     artist: artistName,
-                    timestamp: serverTimestamp(),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(), // v8 syntax for server timestamp
                     submittedBy: auth.currentUser ? auth.currentUser.uid : 'anonymous'
                 });
                 songTitleInput.value = '';
@@ -370,7 +343,6 @@
 
         // Function to copy the public URL
         function copyPublicUrl() {
-            // Get the base URL without any query parameters
             const publicUrl = window.location.origin + window.location.pathname.split('?')[0];
             navigator.clipboard.writeText(publicUrl).then(() => {
                 showMessage("Lien public copié !");
@@ -382,19 +354,17 @@
 
         // Real-time listener for song suggestions (Admin View)
         function setupSongsListener() {
-            // Check if db is initialized before trying to set up listener
             if (!db || !isAuthReady || currentView !== 'admin') {
                 console.warn("Firestore not initialized or not in admin view, skipping song listener setup.");
                 return;
             }
 
-            const q = query(collection(db, `artifacts/${appId}/public/data/suggestions`)); // No orderBy to avoid index issues
-            onSnapshot(q, (snapshot) => {
+            // Using v8 Firestore syntax: db.collection(...).onSnapshot(...)
+            db.collection(`artifacts/${appId}/public/data/suggestions`).onSnapshot((snapshot) => {
                 const songsData = [];
                 snapshot.forEach((doc) => {
                     songsData.push({ id: doc.id, ...doc.data() });
                 });
-                // Sort client-side by timestamp if available
                 songsData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
                 displaySongs(songsData);
             }, (error) => {
@@ -406,7 +376,7 @@
         // Function to display songs in the admin view
         function displaySongs(songs) {
             const songsListContainer = document.getElementById('songs-list-container');
-            if (!songsListContainer) return; // Ensure container exists
+            if (!songsListContainer) return;
 
             if (songs.length === 0) {
                 songsListContainer.innerHTML = `
@@ -436,8 +406,8 @@
         // Admin Login Modal Functions
         function showAdminLoginModal() {
             document.getElementById('admin-login-modal').classList.remove('hidden');
-            document.getElementById('admin-code-input').value = ''; // Clear input
-            document.getElementById('admin-modal-message').textContent = ''; // Clear message
+            document.getElementById('admin-code-input').value = '';
+            document.getElementById('admin-modal-message').textContent = '';
         }
 
         function hideAdminLoginModal() {
@@ -448,51 +418,20 @@
             const adminCodeInput = document.getElementById('admin-code-input');
             const adminModalMessage = document.getElementById('admin-modal-message');
             const enteredCode = adminCodeInput.value;
-            const correctCode = "2507"; // The required admin code
+            const correctCode = "2507";
 
             if (enteredCode === correctCode) {
                 currentView = 'admin';
                 hideAdminLoginModal();
-                // Redirect to admin view using URL parameter
-                window.history.pushState({}, '', '?view=admin');
-                renderApp(); // Re-render to show admin view
+                renderApp();
                 showMessage("Accès administrateur accordé !");
             } else {
                 adminModalMessage.textContent = "Code incorrect. Veuillez réessayer.";
-                adminCodeInput.value = ''; // Clear input on incorrect attempt
+                adminCodeInput.value = '';
             }
         }
 
-        // Function to generate QR Code
-        function generateQrCode() {
-            const qrLinkInput = document.getElementById('qr-link-input');
-            const qrcodeContainer = document.getElementById('qrcode-container');
-            const linkToEncode = qrLinkInput.value.trim();
-
-            if (!linkToEncode) {
-                showMessage("Veuillez entrer un lien pour générer le QR Code.", true);
-                return;
-            }
-
-            // Clear previous QR code
-            qrcodeContainer.innerHTML = '';
-
-            try {
-                // Use window.QRCode to explicitly access the global QRCode object
-                new window.QRCode(qrcodeContainer, {
-                    text: linkToEncode,
-                    width: 200,
-                    height: 200,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : window.QRCode.CorrectLevel.H // Use window.QRCode here too
-                });
-                showMessage("QR Code généré avec succès !");
-            } catch (error) {
-                console.error("Error generating QR code:", error);
-                showMessage("Erreur lors de la génération du QR Code.", true);
-            }
-        }
+        // The generateQrCode function and all related QR code HTML/logic have been removed.
 
         // Event listeners for the modal buttons
         document.addEventListener('DOMContentLoaded', () => {
