@@ -118,10 +118,6 @@
         let currentView = 'public'; // 'public' or 'admin'
         let messageTimeoutRef = null;
 
-        // Get app ID and Firebase config from global environment variables
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
         // Function to display messages
         function showMessage(msg, isError = false) {
             const messageDisplay = document.getElementById('message-display');
@@ -142,32 +138,75 @@
 
         // Initialize Firebase and handle authentication
         async function initializeFirebase() {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+            // Get app ID and Firebase config from global environment variables
+            // Provide fallbacks for environments where these might not be defined (e.g., GitHub Pages)
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'musique-35958'; // Using your projectId as fallback
+            let firebaseConfig = {};
+            let firebaseInitializedSuccessfully = false;
 
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                    } else {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            try {
-                                await signInWithCustomToken(auth, __initial_auth_token);
-                            } catch (error) {
-                                console.error("Error signing in with custom token:", error);
-                                await signInAnonymously(auth);
-                            }
+            try {
+                // Check if __firebase_config is defined and not an empty string
+                if (typeof __firebase_config !== 'undefined' && String(__firebase_config).trim() !== '') {
+                    firebaseConfig = JSON.parse(String(__firebase_config));
+                } else {
+                    console.warn("Firebase config (__firebase_config) is not provided or is empty. Using hardcoded configuration.");
+                    showMessage("Configuration Firebase manquante. Utilisation de la configuration intégrée.", false); // Not an error, just an info
+                    // YOUR PROVIDED FIREBASE CONFIGURATION
+                    firebaseConfig = {
+                        apiKey: "AIzaSyCyjgE-VThkCTsgCwO4drfnKnfCYRpQs_g",
+                        authDomain: "musique-35958.firebaseapp.com",
+                        projectId: "musique-35958",
+                        storageBucket: "musique-35958.firebasestorage.app",
+                        messagingSenderId: "265142488127",
+                        appId: "1:265142488127:web:ce02e9de4bb64d7f0f7c8a",
+                        // measurementId: "G-D2RN4DGC39" // Not strictly needed for core functionality
+                    };
+                }
+            } catch (e) {
+                console.error("Error parsing Firebase config:", e);
+                showMessage("Erreur lors de l'analyse de la configuration Firebase. Vérifiez la console.", true);
+                isAuthReady = true; // Allow UI to render even if Firebase init fails
+                renderApp();
+                return; // Stop initialization if parsing fails
+            }
+
+            // Only proceed with Firebase initialization if firebaseConfig has an apiKey (minimal check)
+            if (firebaseConfig && firebaseConfig.apiKey) {
+                try {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    firebaseInitializedSuccessfully = true;
+
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            userId = user.uid;
                         } else {
-                            await signInAnonymously(auth);
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                try {
+                                    await signInWithCustomToken(auth, __initial_auth_token);
+                                } catch (error) {
+                                    console.error("Error signing in with custom token:", error);
+                                    await signInAnonymously(auth); // Fallback to anonymous if custom token fails
+                                }
+                            } else {
+                                await signInAnonymously(auth); // Sign in anonymously if no custom token
+                            }
                         }
-                    }
-                    isAuthReady = true;
-                    renderApp(); // Render the app once auth is ready
-                });
-            } catch (error) {
-                console.error("Failed to initialize Firebase:", error);
-                showMessage("Erreur lors de l'initialisation de l'application.", true);
+                        isAuthReady = true;
+                        renderApp(); // Render the app once auth is ready
+                    });
+                } catch (error) {
+                    console.error("Failed to initialize Firebase app or services:", error);
+                    showMessage("Erreur lors de l'initialisation de Firebase. Vérifiez la console.", true);
+                    isAuthReady = true; // Allow UI to render even if Firebase init fails
+                    renderApp();
+                }
+            } else {
+                console.warn("Firebase initialization skipped because API key is missing in config.");
+                showMessage("Initialisation Firebase ignorée. Clé API manquante.", true);
+                isAuthReady = true; // Still set auth ready to render the UI
+                renderApp();
             }
         }
 
@@ -307,8 +346,9 @@
                 return;
             }
 
+            // Check if db is initialized before trying to use it
             if (!db) {
-                showMessage("La base de données n'est pas initialisée.", true);
+                showMessage("La base de données n'est pas initialisée. Vérifiez votre configuration Firebase.", true);
                 return;
             }
 
@@ -324,7 +364,7 @@
                 showMessage("Musique proposée avec succès !");
             } catch (error) {
                 console.error("Error adding document:", error);
-                showMessage("Erreur lors de la proposition de la musique.", true);
+                showMessage("Erreur lors de la proposition de la musique. Vérifiez les permissions Firebase.", true);
             }
         }
 
@@ -342,21 +382,25 @@
 
         // Real-time listener for song suggestions (Admin View)
         function setupSongsListener() {
-            if (db && isAuthReady && currentView === 'admin') {
-                const q = query(collection(db, `artifacts/${appId}/public/data/suggestions`)); // No orderBy to avoid index issues
-                onSnapshot(q, (snapshot) => {
-                    const songsData = [];
-                    snapshot.forEach((doc) => {
-                        songsData.push({ id: doc.id, ...doc.data() });
-                    });
-                    // Sort client-side by timestamp if available
-                    songsData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
-                    displaySongs(songsData);
-                }, (error) => {
-                    console.error("Error fetching songs:", error);
-                    showMessage("Erreur lors du chargement des musiques.", true);
-                });
+            // Check if db is initialized before trying to set up listener
+            if (!db || !isAuthReady || currentView !== 'admin') {
+                console.warn("Firestore not initialized or not in admin view, skipping song listener setup.");
+                return;
             }
+
+            const q = query(collection(db, `artifacts/${appId}/public/data/suggestions`)); // No orderBy to avoid index issues
+            onSnapshot(q, (snapshot) => {
+                const songsData = [];
+                snapshot.forEach((doc) => {
+                    songsData.push({ id: doc.id, ...doc.data() });
+                });
+                // Sort client-side by timestamp if available
+                songsData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                displaySongs(songsData);
+            }, (error) => {
+                console.error("Error fetching songs:", error);
+                showMessage("Erreur lors du chargement des musiques. Vérifiez les permissions Firebase.", true);
+            });
         }
 
         // Function to display songs in the admin view
