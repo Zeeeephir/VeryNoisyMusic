@@ -101,6 +101,26 @@
         </div>
     </div>
 
+    <!-- Generic Confirmation Modal -->
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4" id="confirmation-modal-title">Confirmer l'action</h2>
+            <p class="text-gray-600 mb-4" id="confirmation-modal-message"></p>
+            <button
+                id="confirm-action-btn"
+                class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105 mb-2"
+            >
+                Confirmer
+            </button>
+            <button
+                id="cancel-action-btn"
+                class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+            >
+                Annuler
+            </button>
+        </div>
+    </div>
+
     <!-- Firebase SDKs (v8.10.1 for global access) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -119,6 +139,9 @@
         // Declare appId globally so it's accessible everywhere
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'musique-35958'; // Using your projectId as fallback
 
+        // Global variable for confirmation callback
+        let currentConfirmCallback = null;
+
         // Function to display messages
         function showMessage(msg, isError = false) {
             const messageDisplay = document.getElementById('message-display');
@@ -135,6 +158,20 @@
             messageTimeoutRef = setTimeout(() => {
                 messageDisplay.classList.add('hidden');
             }, 3000);
+        }
+
+        // Function to display confirmation modal
+        function showConfirmationModal(message, onConfirmCallback) {
+            const modal = document.getElementById('confirmation-modal');
+            document.getElementById('confirmation-modal-message').textContent = message;
+            currentConfirmCallback = onConfirmCallback; // Store the callback
+            modal.classList.remove('hidden');
+        }
+
+        // Function to hide confirmation modal
+        function hideConfirmationModal() {
+            document.getElementById('confirmation-modal').classList.add('hidden');
+            currentConfirmCallback = null; // Clear the callback
         }
 
         // Initialize Firebase and handle authentication
@@ -275,9 +312,17 @@
                 <div id="songs-list-container" class="mt-8 max-h-96 overflow-y-auto custom-scrollbar">
                     <p class="text-center text-gray-500 text-lg mt-10">Chargement des musiques...</p>
                 </div>
+
+                <button
+                    id="delete-all-suggestions-btn"
+                    class="mt-6 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                >
+                    Supprimer toutes les suggestions
+                </button>
             `;
 
             document.getElementById('copy-public-url-btn').addEventListener('click', copyPublicUrl);
+            document.getElementById('delete-all-suggestions-btn').addEventListener('click', promptDeleteAllSuggestions); // New event listener
             setupSongsListener();
         }
 
@@ -431,12 +476,55 @@
             }
         }
 
-        // The generateQrCode function and all related QR code HTML/logic have been removed.
+        // Function to prompt deletion
+        function promptDeleteAllSuggestions() {
+            showConfirmationModal(
+                "Êtes-vous sûr de vouloir supprimer TOUTES les suggestions de musique ? Cette action est irréversible.",
+                deleteAllSuggestions
+            );
+        }
+
+        // Function to delete all suggestions
+        async function deleteAllSuggestions() {
+            if (!db) {
+                showMessage("La base de données n'est pas initialisée.", true);
+                return;
+            }
+
+            try {
+                const collectionRef = db.collection(`artifacts/${appId}/public/data/suggestions`);
+                const snapshot = await collectionRef.get(); // Get all documents
+
+                if (snapshot.empty) {
+                    showMessage("Aucune suggestion à supprimer.", false);
+                    return;
+                }
+
+                const batch = db.batch(); // Create a batch
+                snapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref); // Add each document deletion to the batch
+                });
+
+                await batch.commit(); // Commit the batch
+                showMessage("Toutes les suggestions ont été supprimées avec succès !");
+            } catch (error) {
+                console.error("Erreur lors de la suppression des suggestions:", error);
+                showMessage("Erreur lors de la suppression des suggestions. Vérifiez les permissions Firebase.", true);
+            }
+        }
 
         // Event listeners for the modal buttons
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('admin-code-submit-btn').addEventListener('click', handleAdminLogin);
             document.getElementById('admin-code-cancel-btn').addEventListener('click', hideAdminLoginModal);
+            // Event listeners for confirmation modal buttons
+            document.getElementById('confirm-action-btn').addEventListener('click', () => {
+                if (currentConfirmCallback) {
+                    currentConfirmCallback();
+                }
+                hideConfirmationModal();
+            });
+            document.getElementById('cancel-action-btn').addEventListener('click', hideConfirmationModal);
         });
 
 
