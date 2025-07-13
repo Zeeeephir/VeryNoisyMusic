@@ -283,8 +283,10 @@
                 return;
             }
 
-            if (currentView === 'admin' || window.location.pathname.includes('/admin')) {
-                currentView = 'admin'; // Ensure view is set to admin if URL contains /admin
+            // Check URL parameters for view
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('view') === 'admin') {
+                currentView = 'admin';
                 renderAdminView();
             } else {
                 currentView = 'public';
@@ -328,7 +330,8 @@
 
         // Function to copy the public URL
         function copyPublicUrl() {
-            const publicUrl = window.location.origin; // Gets the base URL
+            // Get the base URL without any query parameters
+            const publicUrl = window.location.origin + window.location.pathname.split('?')[0];
             navigator.clipboard.writeText(publicUrl).then(() => {
                 showMessage("Lien public copié !");
             }).catch(err => {
@@ -406,6 +409,8 @@
             if (enteredCode === correctCode) {
                 currentView = 'admin';
                 hideAdminLoginModal();
+                // Redirect to admin view using URL parameter
+                window.history.pushState({}, '', '?view=admin');
                 renderApp(); // Re-render to show admin view
                 showMessage("Accès administrateur accordé !");
             } else {
