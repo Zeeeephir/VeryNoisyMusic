@@ -150,7 +150,7 @@
                     firebaseConfig = JSON.parse(String(__firebase_config));
                 } else {
                     console.warn("Firebase config (__firebase_config) is not provided or is empty. Using hardcoded configuration.");
-                    showMessage("Configuration Firebase manquante. Utilisation de la configuration intégrée.", false); // Not an error, just an info
+                    // showMessage("Configuration Firebase manquante. Utilisation de la configuration intégrée.", false); // This message has been removed as requested
                     // YOUR PROVIDED FIREBASE CONFIGURATION
                     firebaseConfig = {
                         apiKey: "AIzaSyCyjgE-VThkCTsgCwO4drfnKnfCYRpQs_g",
